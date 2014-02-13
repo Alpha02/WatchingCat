@@ -51,6 +51,7 @@ END_MESSAGE_MAP()
 
 CWatchingCatDlg::CWatchingCatDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CWatchingCatDlg::IDD, pParent)
+	, Auto_Run(FALSE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -58,6 +59,7 @@ CWatchingCatDlg::CWatchingCatDlg(CWnd* pParent /*=NULL*/)
 void CWatchingCatDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Check(pDX, IDC_CHECK1, Auto_Run);
 }
 
 BEGIN_MESSAGE_MAP(CWatchingCatDlg, CDialogEx)
@@ -65,6 +67,7 @@ BEGIN_MESSAGE_MAP(CWatchingCatDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_WM_TIMER()
+	ON_BN_CLICKED(IDC_CHECK1, &CWatchingCatDlg::OnBnClickedCheck1)
 END_MESSAGE_MAP()
 
 
@@ -105,12 +108,16 @@ BOOL CWatchingCatDlg::OnInitDialog()
 	list->ModifyStyle(0,LVS_REPORT );
 	list->SetExtendedStyle(list->GetExtendedStyle() | LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT);  
 	list->InsertColumn(0,"事件");
-	list->InsertColumn(1,"时间");
+	list->InsertColumn(1,"描述");
+	list->InsertColumn(2,"时间");
 	CRect rect;  
 	list->GetClientRect(rect); //获得当前客户区信息  
-	list->SetColumnWidth(0, rect.Width() / 2); //设置列的宽度。  
-	list->SetColumnWidth(1, rect.Width() / 2);  
+	list->SetColumnWidth(0, rect.Width() / 3); //设置列的宽度。  
+	list->SetColumnWidth(1, rect.Width() / 3);  
+	list->SetColumnWidth(2, rect.Width() / 3);  
 	SetTimer(TIMER1,1000,0);
+	Auto_Run=record_manager->CheckAutoRun();
+	UpdateData(FALSE);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -156,28 +163,36 @@ void CWatchingCatDlg::OnPaint()
 		CDialogEx::OnPaint();
 	}
 }
-void CWatchingCatDlg::OnTimer(UINT nIDEvent)
+void CWatchingCatDlg::OnTimer(UINT_PTR nIDEvent)
 {
 	switch(nIDEvent)
 	{
 	case TIMER1:
 		{ 
 			CTimeRecord * record=record_manager->MakeRecord();
-			int a;
-			CListCtrl *list=(CListCtrl*)GetDlgItem(IDC_LIST6);
-			for(int i=0;i<record_manager->RecordNumber;i++){
-				if(list->GetItemCount()<=i){
-					list->InsertItem(i,"");
-				}
-				list->SetItemText(i,0, record_manager->RecordList[i]->content);  
-				list->SetItemText(i, 1, record_manager->RecordList[i]->description);  
-			
-			}
-			list->EnsureVisible(record_manager->RecordNumber-1, FALSE);
+			if(record!=NULL){
+				int a=rules_manager->GetRuleIDForRecord(record);
+				ofstream outfile("Rules",ios::trunc);
+				rules_manager->Write(outfile);
 
-			a=rules_manager->GetRuleIDForRecord(record);
-			ofstream outfile("Rules",ios::trunc);
-			rules_manager->Write(outfile);
+				CListCtrl *list=(CListCtrl*)GetDlgItem(IDC_LIST6);
+				for(unsigned int i=0;i<record_manager->RecordNumber;i++){
+					record=record_manager->RecordList[i];
+					if(list->GetItemCount()<=i){
+						list->InsertItem(i,"");
+
+						list->SetItemText(i,0, record->content);  
+						list->SetItemText(i, 1, record->description);
+						list->EnsureVisible(i, FALSE);
+					}
+					char * describe=record->DescribeTime();
+					list->SetItemText(i, 2, describe);
+					delete(describe);
+				}
+			}else{
+			}
+			
+
 		}
 	default:
 		break;
@@ -189,4 +204,12 @@ void CWatchingCatDlg::OnTimer(UINT nIDEvent)
 HCURSOR CWatchingCatDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
+}
+
+void CWatchingCatDlg::OnBnClickedCheck1()
+{
+	UpdateData(TRUE);
+	if(Auto_Run!=record_manager->CheckAutoRun()){
+		record_manager->SetAutoRun(Auto_Run);
+	}
 }

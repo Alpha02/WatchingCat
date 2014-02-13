@@ -3,7 +3,7 @@
 #include "TimeRecord.h"
 #define KEYS_LEN 100
 #define VALUES_LEN 200
-#define MAX_RULES 200
+#define MAX_RULES 10000
 class CRulesManager{
 private:
 

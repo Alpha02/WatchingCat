@@ -30,10 +30,13 @@ protected:
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
-	afx_msg void OnTimer(UINT nIDEvent);
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnLbnSelchangeList1();
 	afx_msg void OnStnClickedMfcpropertygrid1();
+	afx_msg void OnBnClickedCheck1();
+	// 是否开机启动
+	BOOL Auto_Run;
 };

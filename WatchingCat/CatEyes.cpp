@@ -48,12 +48,11 @@
 		}
 	}
 	bool CRulesManager::MatchRule(CTimeRecord * record,int idx_rule){
-		if(strcmp(record->content,"NULL")==0){
-			if(keys[idx_rule][0]=='$'){
-				char * tmp_key=keys[idx_rule]+1;
-				if(strstr(record->description,tmp_key)!=NULL){
-					return true;
-				}
+
+		if(keys[idx_rule][0]=='$'){
+			char * tmp_key=keys[idx_rule]+1;
+			if(strstr(record->description,tmp_key)!=NULL){
+				return true;
 			}
 		}else{
 			if(strstr(record->content,keys[idx_rule])!=NULL){
@@ -79,12 +78,16 @@
 		NewRule(tmp_key,tmp_key);
 
 	}
+	void CTimeRecord::Continue(){
+		time_continue++;
+	}
 	CTimeRecord::CTimeRecord(){
 		content=new char[200];
 		description=new char[200];
 	}
 	CTimeRecord::CTimeRecord(tm t,char *str,char * str2){
 		time_record=t;
+		time_continue=1;
 		content=new char[200];
 		description=new char[200];
 		strcpy(content,str);
@@ -101,7 +104,9 @@
 		strcpy(content,str);
 	}
 	bool CTimeRecord::EqualTo(CTimeRecord * target){
-		return (!strcmp(content,target->content));
+		if (strcmp(content,target->content))return false;
+		if (strcmp(description,target->description))return false;
+		return true;
 	}
 
 	void CTimeRecord::Write(ofstream &outfile){
@@ -114,7 +119,7 @@
 			<<time_record.tm_wday<<" "
 			<<time_record.tm_yday<<" "
 			<<time_record.tm_year<<" "
-			<<endl<<content<<endl<<description<<endl;
+			<<time_continue<<endl<<content<<endl<<description<<endl;
 
 	}
 	bool CTimeRecord::Read(ifstream &infile){
@@ -127,7 +132,8 @@
 				>>time_record.tm_sec
 				>>time_record.tm_wday
 				>>time_record.tm_yday
-				>>time_record.tm_year;
+				>>time_record.tm_year
+				>>time_continue;
 			if(infile.eof())return 0;
 			infile.getline(content,200);
 			if(infile.eof())return 0;
@@ -137,6 +143,11 @@
 			return 1;
 		}
 		return 0;
+	}
+	char * CTimeRecord::DescribeTime(){
+		char *str=new char[200];
+		sprintf(str,"%d:%d:%d(%ds)",time_record.tm_hour,time_record.tm_min,time_record.tm_sec,time_continue);
+		return str;
 	}
 	void CTimeRecord::WriteToFile(){
 		ofstream outfile(GetStoreFileName(time_record),ios::app);
@@ -179,9 +190,18 @@
 	CRecordManager::CRecordManager(){
 		PromotePrivilege(TRUE);
 		RecordNumber=0;
-		for(int i=0;i<MAX_RECORD;i++){
+		for(unsigned int i=0;i<MAX_RECORD;i++){
 			RecordList[i]=NULL;
 		}
+		time_t t=time(0);
+		current_time=*localtime(&t);
+		ReadADay(current_time);
+	}
+	CTimeRecord * CRecordManager::GetLatestRecord(){
+		if(RecordNumber>0){
+			return RecordList[RecordNumber-1];
+		}
+		return NULL;
 	}
 	void CRecordManager::ReadADay(tm t){
 		ifstream infile(GetStoreFileName(t));
@@ -195,10 +215,30 @@
 			}
 		}
 	}
+	CTimeRecord * CRecordManager::ReceiveNewRecord(CTimeRecord * record){
+		CTimeRecord * tmp_record=GetLatestRecord();
+		if(tmp_record!=NULL){
+			if(record->EqualTo(tmp_record)){
+				GetLatestRecord()->Continue();
+				delete(record);
+				record=tmp_record;
+			}else{
+				tmp_record->WriteToFile();
+				RecordList[RecordNumber]=record;
+				RecordNumber++;
+			}
+
+		}else{
+			RecordList[RecordNumber]=record;
+			RecordNumber++;
+		}
+		return record;
+
+	}
 	CTimeRecord * CRecordManager::MakeRecord(){
 
 		time_t t=time(0);
-		tm current_time=*localtime(&t);
+		current_time=*localtime(&t);
 		HWND hwnd=GetForegroundWindow();
 		char str_Description[200];
 		char str_Path[200];
@@ -209,25 +249,86 @@
 		}
 		DWORD pid=0;
 		GetWindowThreadProcessId(hwnd,&pid);
-		MODULEENTRY32 me32;
-		me32.dwSize=sizeof(me32);
-		HANDLE hProcessSnap=CreateToolhelp32Snapshot(TH32CS_SNAPMODULE,pid);
-		if(Module32First(hProcessSnap,&me32)){
-			strcpy(str_Path,me32.szExePath);
-			String^ str1= System::Runtime::InteropServices::Marshal::PtrToStringAnsi((IntPtr)str_Path);
-			FileVersionInfo^ myFileVersionInfo = FileVersionInfo::GetVersionInfo(str1);  
-			String ^ str2=myFileVersionInfo->FileDescription;
-			char *ch2 = (char*)(void*)System::Runtime::InteropServices::Marshal::StringToHGlobalAnsi(str2);
+//********************************
+		HMODULE hMods[512] = {0};
+		DWORD cbNeeded = 0;
+		TCHAR szModName[MAX_PATH];
+		BOOL Wow64Process;
+		HANDLE hProcess = ::OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ|PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+		IsWow64Process(hProcess, &Wow64Process); //判断是32位还是64位进程
+		if(EnumProcessModulesEx(hProcess, hMods, sizeof(hMods), &cbNeeded, Wow64Process?LIST_MODULES_32BIT:LIST_MODULES_64BIT)){
+		//用对应的方法枚举模块
+		GetModuleFileNameEx(hProcess, hMods[0], szModName, _countof(szModName));
+		//获取路径
+		CloseHandle(hProcess);
+		strcpy(str_Path,szModName);
+		String^ str1= System::Runtime::InteropServices::Marshal::PtrToStringAnsi((IntPtr)str_Path);
+		FileVersionInfo^ myFileVersionInfo = FileVersionInfo::GetVersionInfo(str1);  
+		String ^ str2=myFileVersionInfo->FileDescription;
+		char *ch2 = (char*)(void*)System::Runtime::InteropServices::Marshal::StringToHGlobalAnsi(str2);
+		if(ch2!=NULL){
 			strcpy(str_Description,ch2);
-			if(strlen(str_Description)==0){
-				strcpy(str_Description,"NULL");
-			}
-		}else{
+		}
+		//以上获取应用程序描述
+		if(strlen(str_Description)==0){
 			strcpy(str_Description,"NULL");
 		}
-		CTimeRecord *record=new CTimeRecord(current_time,str_Description,str_WindowsText);
-		record->WriteToFile();
 
-		ReadADay(current_time);
+		CTimeRecord *record=new CTimeRecord(current_time,str_Description,str_WindowsText);
+		record=ReceiveNewRecord(record);
 		return record;
+		}else{
+			return NULL;
+		}
+		
+		
+	}
+	bool CRecordManager::CheckAutoRun(){
+		HKEY   hKey; 
+		char pFileName[MAX_PATH] = {0}; 
+		//得到程序自身的全路径 
+		DWORD dwRet = GetModuleFileName(NULL,pFileName, MAX_PATH); 
+		//找到系统的启动项 
+		LPCTSTR lpRun = _T("Software\\Microsoft\\Windows\\CurrentVersion\\Run"); 
+		//打开启动项Key 
+		long lRet = RegOpenKey(HKEY_LOCAL_MACHINE, lpRun, &hKey); 
+		if(lRet== ERROR_SUCCESS ){
+			char out_data[MAX_PATH]; 
+			DWORD dwType = REG_SZ; 
+			DWORD dwSize = MAX_PATH; 
+			lRet=RegQueryValueEx(hKey,_T("WatchingCat"),NULL,&dwType,(LPBYTE)out_data,&dwSize);
+			RegCloseKey(hKey); 
+			if((lRet== ERROR_SUCCESS) && (strcmp(out_data,pFileName)==0)){
+				return true;
+			}else{
+				return false;
+			}
+		}
+		return false;
+	}
+	bool CRecordManager::SetAutoRun(bool enabled){
+		HKEY   hKey; 
+		char pFileName[MAX_PATH] = {0}; 
+		//得到程序自身的全路径 
+		DWORD dwRet = GetModuleFileName(NULL,pFileName, MAX_PATH); 
+		//找到系统的启动项 
+		LPCTSTR lpRun = _T("Software\\Microsoft\\Windows\\CurrentVersion\\Run"); 
+		//打开启动项Key 
+		long lRet = RegOpenKey(HKEY_LOCAL_MACHINE, lpRun, &hKey); 
+		if((lRet== ERROR_SUCCESS )&& (enabled))
+		{
+			//添加注册
+			char out_data[MAX_PATH]; 
+			DWORD dwType = REG_SZ; 
+			DWORD dwSize = MAX_PATH; 
+			RegSetValueEx(hKey, _T("WatchingCat"), 0,dwType,(BYTE*)pFileName, dwSize);
+			RegCloseKey(hKey); 
+		}
+		if((lRet== ERROR_SUCCESS)&& (!enabled))
+		{
+			//删除注册
+			RegDeleteValue(hKey,_T("WatchingCat"));
+			RegCloseKey(hKey); 
+		}
+		return 0;
 	}
