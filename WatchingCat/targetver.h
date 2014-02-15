@@ -6,3 +6,5 @@
 // WIN32_WINNT 宏设置为要支持的平台，然后再包括 SDKDDKVer.h。
 
 #include <SDKDDKVer.h>
+
+#define  WM_SHOWTASK WM_USER+1

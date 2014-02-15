@@ -206,6 +206,7 @@
 	void CRecordManager::ReadADay(tm t){
 		ifstream infile(GetStoreFileName(t));
 		RecordNumber=0;
+		if(infile){
 		while(!infile.eof()&&RecordNumber<MAX_RECORD){
 			if(RecordList[RecordNumber]==NULL){
 				RecordList[RecordNumber]=new CTimeRecord();
@@ -213,6 +214,7 @@
 			if(RecordList[RecordNumber]->Read(infile)){
 				RecordNumber++;
 			}
+		}
 		}
 	}
 	CTimeRecord * CRecordManager::ReceiveNewRecord(CTimeRecord * record){

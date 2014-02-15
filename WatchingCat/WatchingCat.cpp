@@ -70,6 +70,7 @@ BOOL CWatchingCatApp::InitInstance()
 	CWatchingCatDlg dlg;
 	m_pMainWnd = &dlg;
 	INT_PTR nResponse = dlg.DoModal();
+
 	if (nResponse == IDOK)
 	{
 		// TODO: 在此放置处理何时用

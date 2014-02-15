@@ -1,0 +1,45 @@
+13 0 14 24 1 19 5 44 114 4
+Microsoft Visual Studio 2010
+WatchingCat (正在调试) - Microsoft Visual Studio(管理员)
+13 0 14 24 1 41 5 44 114 9
+WatchingCat
+WatchingCat
+13 0 14 24 1 55 5 44 114 17
+Microsoft Visual Studio 2010
+WatchingCat (正在运行) - Microsoft Visual Studio(管理员)
+13 0 14 24 1 55 5 44 114 17
+Microsoft Visual Studio 2010
+WatchingCat (正在运行) - Microsoft Visual Studio(管理员)
+13 0 14 24 1 55 5 44 114 17
+Microsoft Visual Studio 2010
+WatchingCat (正在运行) - Microsoft Visual Studio(管理员)
+13 0 14 35 1 6 5 44 114 1
+WatchingCat
+WatchingCat
+13 0 14 35 1 9 5 44 114 2
+Microsoft Visual Studio 2010
+WatchingCat (正在调试) - Microsoft Visual Studio(管理员)
+13 0 14 35 1 10 5 44 114 1
+WatchingCat
+WatchingCat
+13 0 14 35 1 11 5 44 114 3
+Microsoft Visual Studio 2010
+WatchingCat (正在运行) - Microsoft Visual Studio(管理员)
+13 0 14 35 1 14 5 44 114 4
+Google Chrome
+糟糕！谷歌浏览器无法连接到 www.baidu.com - Google Chrome
+13 0 14 35 1 14 5 44 114 4
+Google Chrome
+糟糕！谷歌浏览器无法连接到 www.baidu.com - Google Chrome
+13 0 14 36 1 14 5 44 114 3
+WatchingCat
+WatchingCat
+13 0 14 36 1 14 5 44 114 5
+WatchingCat
+WatchingCat
+13 0 14 37 1 9 5 44 114 2
+Windows 资源管理器
+NULL
+13 0 14 37 1 11 5 44 114 2
+Windows 资源管理器
+Debug
