@@ -1,6 +1,7 @@
 
 // WatchingCatDlg.h : 头文件
 #include "CatEyes.h"
+#include "atlcomtime.h"
 //
 
 #pragma once
@@ -13,7 +14,9 @@ class CWatchingCatDlg : public CDialogEx
 public:
 	NOTIFYICONDATA nid;
 	CRecordManager *record_manager;
+	CRecordManager *tmp_record_manager;
 	CRulesManager *rules_manager;
+	tm selected_time;
 	CWatchingCatDlg(CWnd* pParent = NULL);	// 标准构造函数
 	void _fnToTray();
 // 对话框数据
@@ -45,4 +48,22 @@ public:
 	BOOL First_Hide;
 	afx_msg void OnDestroy();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	// 表示当前需要显示记录日期
+	COleDateTime SelectedDate;
+	afx_msg void OnDtnDatetimechangeDatetimepicker1(NMHDR *pNMHDR, LRESULT *pResult);
+	// 指示系统是否工作在读取当前日期的数据的状态
+	bool ReadCurrentDate;
+	// 用户添加的自定义事件的名称
+	CString Name_UserEvent;
+	// 用户自定义添加的事件描述
+	CString Description_UserEvent;
+	afx_msg void OnBnClickedButtonAddEvent();
+	afx_msg void OnBnClickedButtonNoEvent();
+	afx_msg void OnBnClickedCheckEventLock();
+	// 是否锁定当前事件，锁定后切换窗口将不改变事件。
+	BOOL event_locked;
+	BOOL dummy_event_enabled;
+	int temp_lock_count;
+	BOOL keyboard_record_enabled;
+	afx_msg void OnBnClickedCheckKeyboardRecord();
 };

@@ -1,41 +1,47 @@
 #include "stdafx.h"
 #include "CatEyes.h"
+char * GetStoreFileName(tm t){
+	char *file_path=new char[MAX_PATH];
+	GetModuleFileName(NULL,file_path,MAX_PATH);
+	char * substr_name=strstr(file_path,"WatchingCat.exe");
+	sprintf(substr_name,"%03d%02d%02d.txt",t.tm_year,t.tm_mon,t.tm_mday);
+	return file_path;
+}
+void CRulesManager::Write(ofstream &outfile){
+	for(int i=0;i<rules_number;i++){
+		outfile<<keys[i]<<endl<<values[i]<<endl;
+	}
+}
+bool CRulesManager::Read(ifstream &infile){
+	while((!infile.eof())&&(rules_number<MAX_RULES)){
+		if(!keys[rules_number]){
+			keys[rules_number]=new char[KEYS_LEN];
+		}
+		if(!values[rules_number]){
+			values[rules_number]=new char[VALUES_LEN];
+		}
+		infile.getline(keys[rules_number],KEYS_LEN);
+		if(infile.eof())return false;
+		infile.getline(values[rules_number],VALUES_LEN);
+		rules_number++;
 
-	void CRulesManager::Write(ofstream &outfile){
-		for(int i=0;i<rules_number;i++){
-			outfile<<keys[i]<<endl<<values[i]<<endl;
-		}
 	}
-	bool CRulesManager::Read(ifstream &infile){
-		while((!infile.eof())&&(rules_number<MAX_RULES)){
-			if(!keys[rules_number]){
-				keys[rules_number]=new char[KEYS_LEN];
-			}
-			if(!values[rules_number]){
-				values[rules_number]=new char[VALUES_LEN];
-			}
-			infile.getline(keys[rules_number],KEYS_LEN);
-			if(infile.eof())return false;
-			infile.getline(values[rules_number],VALUES_LEN);
-			rules_number++;
-
-		}
-		return true;
+	return true;
+}
+CRulesManager::CRulesManager(){
+	rules_number=0;
+	for(int i=0;i<MAX_RULES;i++){
+		keys[i]=NULL;
+		values[i]=NULL;
 	}
-	CRulesManager::CRulesManager(){
-		rules_number=0;
-		for(int i=0;i<MAX_RULES;i++){
-			keys[i]=NULL;
-			values[i]=NULL;
-		}
-		ifstream infile("Rules");
-		if(infile!=NULL){
-			Read(infile);		
-			infile.close();
-		}
+	ifstream infile("Rules");
+	if(infile!=NULL){
+		Read(infile);		
+		infile.close();
 	}
-	void CRulesManager::NewRule(char * key,char * value){
-		if(rules_number<MAX_RULES){
+}
+void CRulesManager::NewRule(char * key,char * value){
+	if(rules_number<MAX_RULES){
 		if(!keys[rules_number]){
 			keys[rules_number]=new char[KEYS_LEN];
 		}
@@ -45,22 +51,22 @@
 		strcpy(keys[rules_number],key);
 		strcpy(values[rules_number],value);
 		rules_number++;
-		}
 	}
-	bool CRulesManager::MatchRule(CTimeRecord * record,int idx_rule){
+}
+bool CRulesManager::MatchRule(CTimeRecord * record,int idx_rule){
 
-		if(keys[idx_rule][0]=='$'){
-			char * tmp_key=keys[idx_rule]+1;
-			if(strstr(record->description,tmp_key)!=NULL){
-				return true;
-			}
-		}else{
-			if(strstr(record->content,keys[idx_rule])!=NULL){
-				return true;
-			}
+	if(keys[idx_rule][0]=='$'){
+		char * tmp_key=keys[idx_rule]+1;
+		if(strstr(record->description,tmp_key)!=NULL){
+			return true;
 		}
-		return false;
+	}else{
+		if(strstr(record->content,keys[idx_rule])!=NULL){
+			return true;
+		}
 	}
+	return false;
+}
 	int CRulesManager::GetRuleIDForRecord(CTimeRecord * record){
 		for(int i=0;i<rules_number;i++){
 			if(MatchRule(record,i)){
@@ -187,15 +193,32 @@
 		}  
 		return FALSE;  
 	}  
-	CRecordManager::CRecordManager(){
-		PromotePrivilege(TRUE);
+	void CRecordManager::Init(){
 		RecordNumber=0;
+		temp_lock_count=0;
+		event_locked=false;
+		dummy_event_enable=false;
+		strcpy(my_name,"WatchingCat");
 		for(unsigned int i=0;i<MAX_RECORD;i++){
 			RecordList[i]=NULL;
 		}
+	}
+	CRecordManager::~CRecordManager(){
+		for(unsigned int i=0;i<RecordNumber;i++){
+			delete(RecordList[i]);
+		}
+	}
+	CRecordManager::CRecordManager(){
+		PromotePrivilege(TRUE);
+		Init();
 		time_t t=time(0);
 		current_time=*localtime(&t);
 		ReadADay(current_time);
+	}
+
+	CRecordManager::CRecordManager(tm record_date){
+		Init();
+		ReadADay(record_date);
 	}
 	CTimeRecord * CRecordManager::GetLatestRecord(){
 		if(RecordNumber>0){
@@ -220,7 +243,7 @@
 	CTimeRecord * CRecordManager::ReceiveNewRecord(CTimeRecord * record){
 		CTimeRecord * tmp_record=GetLatestRecord();
 		if(tmp_record!=NULL){
-			if(record->EqualTo(tmp_record)){
+			if(record->EqualTo(tmp_record) || event_locked){
 				GetLatestRecord()->Continue();
 				delete(record);
 				record=tmp_record;
@@ -234,6 +257,7 @@
 			RecordList[RecordNumber]=record;
 			RecordNumber++;
 		}
+
 		return record;
 
 	}
@@ -251,6 +275,7 @@
 		}
 		DWORD pid=0;
 		GetWindowThreadProcessId(hwnd,&pid);
+		if(pid==0)return NULL;
 //********************************
 		HMODULE hMods[512] = {0};
 		DWORD cbNeeded = 0;
@@ -265,25 +290,37 @@
 		CloseHandle(hProcess);
 		strcpy(str_Path,szModName);
 		String^ str1= System::Runtime::InteropServices::Marshal::PtrToStringAnsi((IntPtr)str_Path);
-		FileVersionInfo^ myFileVersionInfo = FileVersionInfo::GetVersionInfo(str1);  
+		FileVersionInfo^ myFileVersionInfo=FileVersionInfo::GetVersionInfo(str1);  
 		String ^ str2=myFileVersionInfo->FileDescription;
 		char *ch2 = (char*)(void*)System::Runtime::InteropServices::Marshal::StringToHGlobalAnsi(str2);
-		if(ch2!=NULL){
-			strcpy(str_Description,ch2);
-		}
 		//以上获取应用程序描述
+		strcpy(str_Description,ch2);
+		delete(myFileVersionInfo);
 		if(strlen(str_Description)==0){
 			strcpy(str_Description,"NULL");
+		}else{
+
 		}
 
+		
+		if(temp_lock_count){
+			temp_lock_count--;
+			strcpy(my_name,str_Description);
+		}
+		if(dummy_event_enable && (strcmp(str_Description,my_name)==0)){
+			strcpy(str_Description,name_dummy_event);
+			strcpy(str_WindowsText,description_dummy_event);
+		}else{
+			dummy_event_enable=false;
+		}
 		CTimeRecord *record=new CTimeRecord(current_time,str_Description,str_WindowsText);
+		
+		
 		record=ReceiveNewRecord(record);
 		return record;
 		}else{
 			return NULL;
 		}
-		
-		
 	}
 	bool CRecordManager::CheckAutoRun(){
 		HKEY   hKey; 
@@ -333,4 +370,9 @@
 			RegCloseKey(hKey); 
 		}
 		return 0;
+	}
+	void CRecordManager::SetDummyEvent(bool enable,char * name,char * description){
+		dummy_event_enable=enable;
+		strcpy(name_dummy_event,name);
+		strcpy(description_dummy_event,description);
 	}
